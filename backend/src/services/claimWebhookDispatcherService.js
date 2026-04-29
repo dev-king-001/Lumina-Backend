@@ -7,6 +7,7 @@ const {
   Beneficiary,
   Vault,
 } = require('../models');
+const idempotencyKeyService = require('./idempotencyKeyService');
 
 class ClaimWebhookDispatcherService {
   constructor() {
@@ -150,29 +151,59 @@ class ClaimWebhookDispatcherService {
       const payload = delivery.payload || {};
       const headers = this.buildHeaders(payload, delivery.payload_signature);
 
+      // Generate idempotency key for this delivery
+      const idempotencyKey = idempotencyKeyService.generateIdempotencyKey(
+        'claim',
+        delivery.target_url,
+        payload,
+        delivery.event_key // Use event_key as the idempotency key
+      );
+
       this.log('info', 'claim_webhook_delivery_attempt', {
         deliveryId,
         eventId: delivery.event_key,
         attempt: attemptNumber,
         targetUrl: delivery.target_url,
+        idempotencyKey,
       });
 
       try {
-        const response = await axios.post(delivery.target_url, payload, {
-          headers,
-          timeout: this.timeoutMs,
-          maxRedirects: 3,
-          validateStatus: () => true,
-        });
+        // Execute webhook with idempotency protection
+        const result = await idempotencyKeyService.executeWithIdempotency(
+          'claim',
+          delivery.target_url,
+          payload,
+          async () => {
+            const response = await axios.post(delivery.target_url, payload, {
+              headers: {
+                ...headers,
+                'Idempotency-Key': idempotencyKey,
+              },
+              timeout: this.timeoutMs,
+              maxRedirects: 3,
+              validateStatus: () => true,
+            });
 
-        if (response.status >= 200 && response.status < 300) {
+            if (response.status >= 200 && response.status < 300) {
+              return {
+                success: true,
+                responseStatus: response.status,
+                responseBody: this.serializeResponseBody(response.data),
+              };
+            }
+
+            throw this.buildHttpError(response.status, response.data);
+          }
+        );
+
+        if (result.success) {
           await delivery.update({
             delivery_status: 'success',
             attempt_count: attemptNumber,
             last_attempt_at: new Date(),
             next_attempt_at: null,
-            last_http_status: response.status,
-            last_response_body: this.serializeResponseBody(response.data),
+            last_http_status: result.responseStatus,
+            last_response_body: result.responseBody,
             last_error_message: null,
           });
 
@@ -180,14 +211,16 @@ class ClaimWebhookDispatcherService {
             deliveryId,
             eventId: delivery.event_key,
             attempt: attemptNumber,
-            statusCode: response.status,
+            statusCode: result.responseStatus,
+            fromCache: result.fromCache,
           });
           return;
+        } else {
+          // Handle case where operation was already processed but failed
+          throw new Error(result.message || 'Webhook operation failed');
         }
-
-        throw this.buildHttpError(response.status, response.data);
       } catch (error) {
-        const shouldRetry = attemptNumber < this.retryLimit;
+        const shouldRetry = attemptNumber < this.retryLimit && !error.fromCache;
         const nextAttemptAt = shouldRetry
           ? new Date(Date.now() + this.calculateBackoffMs(attemptNumber))
           : null;
@@ -208,6 +241,7 @@ class ClaimWebhookDispatcherService {
           attempt: attemptNumber,
           retrying: shouldRetry,
           error: error.message,
+          fromCache: error.fromCache || false,
           nextAttemptAt: nextAttemptAt ? nextAttemptAt.toISOString() : null,
         });
 

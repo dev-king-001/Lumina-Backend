@@ -40,6 +40,7 @@
     "apollo-server-express": "^3.13.0",
     "axios": "^1.6.2",
     "bcryptjs": "^3.0.3",
+    "bignumber.js": "^9.1.2",
     "compression": "^1.8.1",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",

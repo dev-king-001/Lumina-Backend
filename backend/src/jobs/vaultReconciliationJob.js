@@ -241,6 +241,30 @@ class VaultReconciliationJob {
       throw error;
     }
   }
+
+  async monitorRoundingDrift(vault, onChainVestedAmount) {
+    const dbAmount = parseFloat(vault.total_amount);
+    const expectedAmount = parseFloat(onChainVestedAmount);
+    const drift = Math.abs(dbAmount - expectedAmount);
+    const EPSILON = 0.0000001;
+
+    if (drift > EPSILON) {
+      console.warn(`[PRECISION MONITOR] Drift detected for vault ${vault.address}: ${drift}`);
+      await this.logPrecisionError(vault.address, dbAmount, expectedAmount, drift);
+    }
+  }
+
+  async logPrecisionError(address, dbVal, chainVal, drift) {
+    console.error(JSON.stringify({
+      event: 'ROUNDING_ERROR_DETECTED',
+      address,
+      database_value: dbVal,
+      on_chain_value: chainVal,
+      drift,
+      severity: drift > 0.01 ? 'HIGH' : 'LOW'
+    }));
+  }
+
 }
 
 module.exports = { VaultReconciliationJob };

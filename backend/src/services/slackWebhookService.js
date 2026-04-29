@@ -1,4 +1,5 @@
 const axios = require('axios');
+const idempotencyKeyService = require('./idempotencyKeyService');
 
 class SlackWebhookService {
   constructor() {
@@ -142,15 +143,42 @@ class SlackWebhookService {
         ]
       };
 
-      const response = await axios.post(this.webhookUrl, payload, {
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        timeout: 5000 // 5 second timeout
-      });
+      // Generate idempotency key for this Slack notification
+      const idempotencyKey = idempotencyKeyService.generateIdempotencyKey(
+        'slack',
+        this.webhookUrl,
+        payload,
+        `large_claim_${transaction_hash}_${user_address}`
+      );
 
-      if (response.status === 200) {
-        console.log(`Slack alert sent for large claim: ${transaction_hash}`);
+      // Execute Slack webhook with idempotency protection
+      const result = await idempotencyKeyService.executeWithIdempotency(
+        'slack',
+        this.webhookUrl,
+        payload,
+        async () => {
+          const response = await axios.post(this.webhookUrl, payload, {
+            headers: {
+              'Content-Type': 'application/json',
+              'Idempotency-Key': idempotencyKey,
+            },
+            timeout: 5000 // 5 second timeout
+          });
+
+          if (response.status === 200) {
+            return {
+              success: true,
+              responseStatus: response.status,
+              responseBody: 'Slack notification sent successfully',
+            };
+          }
+
+          throw new Error(`Slack webhook failed with status ${response.status}`);
+        }
+      );
+
+      if (result.success) {
+        console.log(`Slack alert sent for large claim: ${transaction_hash}${result.fromCache ? ' (from cache)' : ''}`);
         return true;
       }
 
