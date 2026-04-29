@@ -1,0 +1,104 @@
+# Default values for vesting-vault-backend.
+# Override these in a values file or with --set flags.
+
+replicaCount: 3
+
+image:
+  repository: your-registry/vesting-vault-backend
+  tag: "latest"
+  pullPolicy: Always
+
+nameOverride: ""
+fullnameOverride: ""
+
+namespace: vesting-vault
+
+service:
+  type: ClusterIP
+  port: 80
+  targetPort: 3000
+
+ingress:
+  enabled: true
+  className: nginx
+  annotations:
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/proxy-body-size: "10m"
+  host: vesting-vault.example.com
+  tls:
+    enabled: true
+    secretName: vesting-vault-tls
+
+resources:
+  requests:
+    cpu: "250m"
+    memory: "256Mi"
+  limits:
+    cpu: "500m"
+    memory: "512Mi"
+
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 70
+  targetMemoryUtilizationPercentage: 80
+
+livenessProbe:
+  path: /health
+  port: 3000
+  initialDelaySeconds: 30
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 3
+
+readinessProbe:
+  path: /health/ready
+  port: 3000
+  initialDelaySeconds: 5
+  periodSeconds: 5
+  timeoutSeconds: 3
+  failureThreshold: 3
+
+# Non-sensitive environment config (goes into a ConfigMap)
+config:
+  NODE_ENV: production
+  PORT: "3000"
+  LOG_LEVEL: info
+
+# Sensitive values — set via --set or an external secrets manager.
+# These are base64-encoded when stored in the Secret.
+secrets:
+  DATABASE_URL: ""
+  JWT_SECRET: ""
+  BACKUP_ENCRYPTION_KEY: ""
+
+podAnnotations: {}
+
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1001
+  fsGroup: 1001
+
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: false
+  capabilities:
+    drop:
+      - ALL
+
+affinity:
+  podAntiAffinity:
+    preferredDuringSchedulingIgnoredDuringExecution:
+      - weight: 100
+        podAffinityTerm:
+          labelSelector:
+            matchExpressions:
+              - key: app.kubernetes.io/name
+                operator: In
+                values:
+                  - vesting-vault-backend
+          topologyKey: kubernetes.io/hostname
+
+tolerations: []
+nodeSelector: {}

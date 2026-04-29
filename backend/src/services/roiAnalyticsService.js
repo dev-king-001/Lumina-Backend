@@ -15,6 +15,12 @@ class RoiAnalyticsService {
     this.cacheTimeout = 300000; // 5 minutes cache
   }
 
+  buildUserCacheKey(userAddress, options = {}) {
+    const includeGrants = options.include_grants !== false;
+    const includeVaults = options.include_vaults !== false;
+    return `roi-${userAddress}-${includeGrants ? 'g1' : 'g0'}-${includeVaults ? 'v1' : 'v0'}`;
+  }
+
   /**
    * Get comprehensive ROI analytics for a user
    * @param {string} userAddress - User wallet address
@@ -22,12 +28,28 @@ class RoiAnalyticsService {
    * @returns {Promise<Object>} ROI analytics data
    */
   async getUserRoiAnalytics(userAddress, options = {}) {
-    const cacheKey = `roi-${userAddress}-${JSON.stringify(options)}`;
+    const cacheKey = this.buildUserCacheKey(userAddress, options);
     
     if (this.cache.has(cacheKey)) {
       const cached = this.cache.get(cacheKey);
-      if (Date.now() - cached.timestamp < this.cacheTimeout) {
+      const ageMs = Date.now() - cached.timestamp;
+      if (ageMs < this.cacheTimeout) {
         return cached.data;
+      }
+
+      if (options.allowStaleCache) {
+        const staleData = {
+          ...cached.data,
+          metadata: {
+            ...(cached.data && cached.data.metadata ? cached.data.metadata : {}),
+            cache: {
+              stale: true,
+              ageMs
+            },
+            degraded: true
+          }
+        };
+        return staleData;
       }
     }
 

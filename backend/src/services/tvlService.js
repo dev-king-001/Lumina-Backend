@@ -1,5 +1,6 @@
-const { Vault, TVL, HistoricalTVL } = require('../models');
+const { Vault, TVL } = require('../models');
 const cacheService = require('./cacheService');
+const requestDeduplicationMiddleware = require('../middleware/requestDeduplication.middleware');
 
 class TVLService {
   /**
@@ -199,6 +200,10 @@ class TVLService {
   async handleVaultCreated(vaultData) {
     try {
       console.log(`Handling VaultCreated event for vault: ${vaultData.address}`);
+      
+      // Clear TVL cache and related deduplication cache
+      await this.invalidateTVLCache();
+      
       await this.updateTVL();
     } catch (error) {
       console.error('Error handling vault created event:', error);
@@ -213,9 +218,31 @@ class TVLService {
   async handleClaim(claimData) {
     try {
       console.log(`Handling Claim event for transaction: ${claimData.transaction_hash}`);
+      
+      // Clear TVL cache and related deduplication cache
+      await this.invalidateTVLCache();
+      
       await this.updateTVL();
     } catch (error) {
       console.error('Error handling claim event:', error);
+    }
+  }
+
+  /**
+   * Invalidate TVL cache and deduplication entries
+   * @returns {Promise<void>}
+   */
+  async invalidateTVLCache() {
+    try {
+      // Clear TVL data cache
+      await cacheService.deletePattern('tvl_*');
+      
+      // Clear deduplication cache for TVL operations
+      await requestDeduplicationMiddleware.clearOperationCache('tvl_calculation');
+      
+      console.log('[TVL] TVL cache invalidated');
+    } catch (error) {
+      console.error('Error invalidating TVL cache:', error);
     }
   }
 

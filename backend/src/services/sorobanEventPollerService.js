@@ -16,6 +16,11 @@ class SorobanEventPollerService {
     this.maxRetries = options.maxRetries || 3;
     this.contractAddresses = options.contractAddresses || []; // Specific contracts to monitor
     
+    // Checkpoint-based backfill configuration for large gaps
+    this.gapThreshold = options.gapThreshold || 1000; // Trigger checkpoint backfill when gap exceeds this
+    this.checkpointInterval = options.checkpointInterval || 100; // Ledgers between checkpoints during backfill
+    this.enableCheckpointBackfill = options.enableCheckpointBackfill !== false; // Enabled by default
+    
     // Initialize RPC client
     const rpcUrl = process.env.SOROBAN_RPC_URL || process.env.STELLAR_RPC_URL;
     if (!rpcUrl) {

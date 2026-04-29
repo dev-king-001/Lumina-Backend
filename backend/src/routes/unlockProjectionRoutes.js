@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const unlockProjectionService = require('../services/unlockProjectionService');
+const syncHealthCheckService = require('../services/syncHealthCheckService');
 const authService = require('../services/authService');
 
 /**
@@ -33,11 +34,47 @@ router.get('/unlocks', authService.authenticate(), async (req, res) => {
       return res.status(400).json({ success: false, error: 'Invalid end_date' });
     }
 
+    let syncHealth;
+    try {
+      syncHealth = await syncHealthCheckService.performHealthCheck();
+    } catch (error) {
+      syncHealth = {
+        status: 'unknown',
+        httpStatus: 503,
+        error: error.message
+      };
+    }
+
+    if (syncHealth.status !== 'healthy') {
+      return res.json({
+        success: true,
+        data: {
+          projection: [],
+          summary: {
+            totalToUnlock: 0,
+            period: { startDate: options.startDate, endDate: options.endDate },
+            tokenAddress: options.tokenAddress,
+            organizationId: options.organizationId,
+            generatedAt: new Date()
+          }
+        },
+        metadata: {
+          degraded: true,
+          reason: 'sync_in_progress',
+          syncHealth
+        }
+      });
+    }
+
     const projection = await unlockProjectionService.projectUnlocks(options);
 
     res.json({
       success: true,
-      data: projection
+      data: projection,
+      metadata: {
+        degraded: false,
+        syncHealth
+      }
     });
   } catch (error) {
     console.error('Error in unlock projection route:', error);

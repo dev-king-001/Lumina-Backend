@@ -1,5 +1,7 @@
 const { ClaimsHistory, Organization, Token } = require('../models');
 const { Op } = require('sequelize');
+const cacheService = require('./cacheService');
+const requestDeduplicationMiddleware = require('../middleware/requestDeduplication.middleware');
 
 class AccountingExportService {
   /**
@@ -321,6 +323,44 @@ class AccountingExportService {
   isValidDate(dateString) {
     const date = new Date(dateString);
     return date instanceof Date && !isNaN(date);
+  }
+
+  /**
+   * Invalidate accounting export cache for organization
+   * @param {string} organizationId - Organization UUID
+   * @returns {Promise<void>}
+   */
+  async invalidateExportCache(organizationId) {
+    try {
+      // Clear export data cache for this organization
+      await cacheService.deletePattern(`export_${organizationId}_*`);
+      
+      // Clear deduplication cache for accounting export operations
+      await requestDeduplicationMiddleware.clearOperationCache('accounting_export');
+      
+      console.log(`[AccountingExport] Export cache invalidated for organization: ${organizationId}`);
+    } catch (error) {
+      console.error('Error invalidating accounting export cache:', error);
+    }
+  }
+
+  /**
+   * Generate cache key for export operations
+   * @param {string} organizationId - Organization UUID
+   * @param {Object} options - Export options
+   * @returns {string} Cache key
+   */
+  getExportCacheKey(organizationId, options) {
+    const { startDate, endDate, tokenAddress, exportType } = options;
+    const keyParts = [
+      'export',
+      organizationId,
+      exportType || 'generic',
+      startDate || 'no-start',
+      endDate || 'no-end',
+      tokenAddress || 'no-token'
+    ];
+    return keyParts.join('_');
   }
 }
 
