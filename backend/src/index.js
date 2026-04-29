@@ -45,11 +45,11 @@ const initNest = async () => {
   throttlerService = nestApp.get(ThrottlerService);
   pdfQueue = nestApp.get(getQueueToken('pdf-generation'));
   exportQueue = nestApp.get(getQueueToken('csv-export'));
-  
+
   // Expose queues to app for use in routes
   app.set('pdfQueue', pdfQueue);
   app.set('exportQueue', exportQueue);
-  
+
   console.log('NestJS bridge established');
 };
 
@@ -59,15 +59,15 @@ app.use(async (req, res, next) => {
     // If NestJS isn't ready yet, skip throttling (or wait)
     return next();
   }
-  
+
   const ip = req.ip || req.get('x-forwarded-for') || req.socket.remoteAddress;
   const isAuth = req.path.includes('/api/auth/');
-  
+
   try {
     const limit = isAuth ? 10 : 100;
     const ttl = 60000;
     const key = `throttle:${isAuth ? 'auth' : 'global'}:${ip}`;
-    
+
     const { success } = await throttlerService.throttle({
       limit,
       ttl,
@@ -241,7 +241,6 @@ const dividendService = require("./services/dividendService");
 const accountConsolidationService = require("./services/accountConsolidationService");
 const VaultService = require("./services/vaultService");
 const batchRevocationService = require("./services/batchRevocationService");
-const shadowIndexingRoutes = require("./routes/shadowIndexingRoutes");
 const monthlyReportJob = require("./jobs/monthlyReportJob");
 const { VaultReconciliationJob } = require("./jobs/vaultReconciliationJob");
 const vaultArchivalJob = require("./jobs/vaultArchivalJob");
@@ -253,6 +252,7 @@ const claimWebhookListenerService = require("./services/claimWebhookListenerServ
 const stellarPathPaymentListener = require("./services/stellarPathPaymentListener");
 const kycExpirationWorker = require("./jobs/kycExpirationWorker");
 const gdprComplianceJob = require("./jobs/gdprComplianceJob");
+const VestingStateReconciliationJob = require("./jobs/vestingStateReconciliationJob");
 
 const { Token, initTokenModel } = models; // models already has these
 // Note: models/index.js already calls initTokenModel(sequelize)
@@ -299,7 +299,7 @@ app.get("/health/ready", async (req, res) => {
   try {
     // Check database connection
     await sequelize.authenticate();
-    
+
     // Check Redis connection if available
     let redisStatus = "not_configured";
     try {
@@ -335,7 +335,7 @@ app.get("/health/live", (req, res) => {
   // Simple liveness check - just confirms the process is running
   const uptime = process.uptime();
   const memoryUsage = process.memoryUsage();
-  
+
   res.json({
     status: "alive",
     timestamp: new Date().toISOString(),
@@ -535,9 +535,6 @@ app.use("/api/ledger-reorg", require('./routes/ledgerReorg'));
 
 // Mount vesting history routes (optimized PostgreSQL queries)
 app.use("/api/vesting-history", require('./routes/vestingHistory'));
-
-// Mount shadow-indexing routes (real-time consistency monitoring)
-app.use("/api/shadow-indexing", shadowIndexingRoutes);
 
 // Historical price tracking job management endpoints
 app.post("/api/admin/jobs/historical-prices/start", async (req, res) => {
@@ -927,12 +924,12 @@ app.get("/api/claims/:userAddress/realized-gains", async (req, res) => {
 // POST /api/admin/batch-revoke - Batch revoke multiple beneficiaries
 app.post("/api/admin/batch-revoke", authService.authenticate(true), async (req, res) => {
   try {
-    const { 
-      vaultAddress, 
-      beneficiaryAddresses, 
-      reason, 
+    const {
+      vaultAddress,
+      beneficiaryAddresses,
+      reason,
       treasuryAddress,
-      admin_address 
+      admin_address
     } = req.body;
 
     // Validate input
@@ -969,8 +966,8 @@ app.post("/api/admin/batch-revoke", authService.authenticate(true), async (req, 
       treasuryAddress,
     });
 
-    res.json({ 
-      success: true, 
+    res.json({
+      success: true,
       message: result.message,
       data: {
         vault_address: result.vault_address,
@@ -983,7 +980,7 @@ app.post("/api/admin/batch-revoke", authService.authenticate(true), async (req, 
     });
   } catch (error) {
     console.error("Batch revocation error:", error);
-    
+
     // Handle specific error types
     let statusCode = 500;
     if (error.message.includes('not found')) {
@@ -994,9 +991,9 @@ app.post("/api/admin/batch-revoke", authService.authenticate(true), async (req, 
       statusCode = 400;
     }
 
-    res.status(statusCode).json({ 
-      success: false, 
-      error: error.message 
+    res.status(statusCode).json({
+      success: false,
+      error: error.message
     });
   }
 });
@@ -1083,19 +1080,19 @@ app.post("/api/admin/transfer", async (req, res) => {
 app.post("/api/admin/vault/privacy", async (req, res) => {
   try {
     const { cursor, limit = 100 } = req.query;
-    
+
     // Validate cursor parameters
     const paginationOptions = validateCursorParams(req, 'created_at');
-    
+
     const result = await paginateWithCursor(models.AuditLog, {
       cursor: paginationOptions.cursor,
       orderField: 'created_at',
       orderDirection: 'DESC',
       limit: paginationOptions.limit
     });
-    
-    res.json({ 
-      success: true, 
+
+    res.json({
+      success: true,
       data: {
         audit_logs: result.items,
         pagination: result.pagination
@@ -1612,11 +1609,11 @@ app.get("/api/vaults/:id/export", async (req, res) => {
   try {
     const { id } = req.params;
     const exportQueue = req.app.get('exportQueue');
-    
+
     // Offload CSV generation to BullMQ worker
     const outputPath = path.join(__dirname, '../downloads', `export-${id}-${Date.now()}.csv`);
     const job = await exportQueue.add('generate-csv', { vaultId: id, outputPath });
-    
+
     // Wait for worker to finish (to keep compatibility but offload event loop)
     await job.waitUntilFinished(new (require('bullmq').QueueEvents)('csv-export', {
       connection: {
@@ -1624,7 +1621,7 @@ app.get("/api/vaults/:id/export", async (req, res) => {
         port: parseInt(process.env.REDIS_PORT || '6379'),
       }
     }));
-    
+
     res.download(outputPath);
   } catch (error) {
     console.error("Error queueing CSV export:", error);
@@ -1720,9 +1717,9 @@ app.get("/api/vault/:id/agreement.pdf", async (req, res) => {
     // Generate and stream PDF via BullMQ offloading
     const pdfQueue = req.app.get('pdfQueue');
     const outputPath = path.join(__dirname, '../downloads', `agreement-${vaultData.vault.address}-${Date.now()}.pdf`);
-    
+
     const job = await pdfQueue.add('generate-pdf', { vaultData, outputPath });
-    
+
     // Wait for worker to finish (ensures main event loop is free while worker computes)
     await job.waitUntilFinished(new (require('bullmq').QueueEvents)('pdf-generation', {
       connection: {
@@ -1730,7 +1727,7 @@ app.get("/api/vault/:id/agreement.pdf", async (req, res) => {
         port: parseInt(process.env.REDIS_PORT || '6379'),
       }
     }));
-    
+
     res.download(outputPath);
   } catch (error) {
     console.error("Error queueing PDF generation:", error);
@@ -1760,7 +1757,7 @@ app.get("/api/token/:address/distribution", async (req, res) => {
           [sequelize.Op.gt]: 0
         }
 
-        ,const :dividendRound = await dividendService.createDividendRound(
+        , const: dividendRound = await dividendService.createDividendRound(
           tokenAddress,
           totalAmount,
           dividendToken,
@@ -1769,12 +1766,12 @@ app.get("/api/token/:address/distribution", async (req, res) => {
           createdBy
         ),
 
-res,status(201).json({
+        res, status(201).json({
           success: true,
           data: dividendRound
         }),
-      } 
-,catch (error) {
+      }
+      , catch(error) {
         console.error('Error creating dividend round:', error);
         res.status(500).json({
           success: false,
@@ -1782,34 +1779,34 @@ res,status(201).json({
         });
       }
     },
-  
-          [sequelize.Op.gt]: 0,
+
+      [sequelize.Op.gt]: 0,
         },
-      },
-      group: ["tag"],
-      raw: true,
+},
+  group: ["tag"],
+  raw: true,
     });
 
-    // Format the response
-    const result = distribution
-      .filter((item) => item.tag) // Filter out null tags
-      .map((item) => ({
-        label: item.tag,
-        amount: parseFloat(item.total_amount),
-      }))
-      .sort((a, b) => b.amount - a.amount); // Sort by amount descending
+// Format the response
+const result = distribution
+  .filter((item) => item.tag) // Filter out null tags
+  .map((item) => ({
+    label: item.tag,
+    amount: parseFloat(item.total_amount),
+  }))
+  .sort((a, b) => b.amount - a.amount); // Sort by amount descending
 
-    res.json({
-      success: true,
-      data: result,
-    });
+res.json({
+  success: true,
+  data: result,
+});
   } catch (error) {
-    console.error("Error fetching token distribution:", error);
-    res.status(500).json({
-      success: false,
-      error: error.message,
-    });
-  }
+  console.error("Error fetching token distribution:", error);
+  res.status(500).json({
+    success: false,
+    error: error.message,
+  });
+}
 });
 
 // Dividend Distribution Endpoints
@@ -2172,11 +2169,11 @@ app.get("/api/statements/annual/:userAddress/:year/download", async (req, res) =
 
     const statement = await annualVestingStatementService.getStatement(userAddress, parseInt(year));
     const job = await queueService.addAnnualStatementJob(statement.statement_data, parseInt(year));
-    
-    res.json({ 
-      success: true, 
-      message: "Annual statement generation job queued", 
-      data: { jobId: job.id } 
+
+    res.json({
+      success: true,
+      message: "Annual statement generation job queued",
+      data: { jobId: job.id }
     });
   } catch (error) {
     console.error("Error queueing annual statement:", error);
@@ -2201,7 +2198,7 @@ app.get("/api/jobs/:id", async (req, res) => {
 app.get("/api/exports/download/:filename", (req, res) => {
   const filename = req.params.filename;
   const filePath = path.join(__dirname, "../exports", filename);
-  
+
   if (fs.existsSync(filePath)) {
     res.download(filePath);
   } else {
@@ -2561,113 +2558,122 @@ const startServer = async () => {
     } catch (jobError) {
       console.error("Failed to initialize Vault Registry Indexing Job:", jobError);
     }
-    
+
     // Start the HTTP server
     httpServer.listen(PORT, () => {
       console.log(`Server is running on port ${PORT}`);
       console.log(`REST API available at: http://localhost:${PORT}`);
       if (graphQLServer) {
         console.log(`GraphQL API available at: http://localhost:${PORT}/graphql`);
-        });
-      } try 
+      });
+  } try 
       catch (error) {
-        console.error('Unable to start server:', error);
-        process.exit(1);
-      }
-    };
-
-    startServer();
-    };
-
-    // Initialize Vault Balance Monitoring Job
-    try {
-      vaultBalanceMonitoringJob.start();
-      console.log("Vault Balance Monitoring Job started successfully.");
-    } catch (jobError) {
-      console.error("Failed to initialize Vault Balance Monitoring Job:", jobError);
-    }
-
-    // Initialize claim webhook listener
-    try {
-      claimWebhookListenerService.start();
-      console.log("Claim Webhook Listener started successfully.");
-    } catch (listenerError) {
-      console.error("Failed to initialize Claim Webhook Listener:", listenerError);
-    }
-
-    // Initialize Stellar Path Payment Listener
-    try {
-      stellarPathPaymentListener.start();
-      console.log("Stellar Path Payment Listener started successfully.");
-    } catch (listenerError) {
-      console.error("Failed to initialize Stellar Path Payment Listener:", listenerError);
-    }
-    // Start background metrics collection
-    setInterval(async () => {
-      try {
-        const { activeDbConnections, totalIndexedBlocks } = metricsService;
-        const { writeSequelize } = require('./database/connection');
-        if (writeSequelize && writeSequelize.connectionManager && writeSequelize.connectionManager.pool) {
-          const activeConnections = writeSequelize.connectionManager.pool.size - writeSequelize.connectionManager.pool.available;
-          activeDbConnections.set(activeConnections);
-        }
-        
-        const { ClaimsHistory } = require('./models');
-        const maxBlock = await ClaimsHistory.max('block_number');
-        if (maxBlock) {
-          totalIndexedBlocks.set(parseInt(maxBlock));
-        }
-      } catch (error) {
-        console.error('Error updating metrics:', error);
-      }
-    }, 15000);
-
-    // Initialize Soroban Event Poller Service
-    try {
-      const SorobanEventPollerService = require('./services/sorobanEventPollerService');
-      const SorobanEventProcessor = require('./services/sorobanEventProcessor');
-      
-      const sorobanEventPoller = new SorobanEventPollerService({
-        pollInterval: parseInt(process.env.SOROBAN_POLL_INTERVAL) || 30000,
-        batchSize: parseInt(process.env.SOROBAN_BATCH_SIZE) || 100,
-        contractAddresses: process.env.SOROBAN_CONTRACT_ADDRESSES ? 
-          process.env.SOROBAN_CONTRACT_ADDRESSES.split(',') : []
-      });
-      
-      const sorobanEventProcessor = new SorobanEventProcessor({
-        batchSize: parseInt(process.env.SOROBAN_PROCESSOR_BATCH_SIZE) || 50,
-        processingDelay: parseInt(process.env.SOROBAN_PROCESSOR_DELAY) || 1000
-      });
-      
-      // Start both services
-      await sorobanEventPoller.start();
-      await sorobanEventProcessor.startProcessing();
-      
-      console.log("Soroban Event Poller and Processor services started successfully.");
-      
-      // Store services globally for access in routes
-      global.sorobanEventPoller = sorobanEventPoller;
-      global.sorobanEventProcessor = sorobanEventProcessor;
-      
-    } catch (sorobanError) {
-      console.error("Failed to initialize Soroban Event services:", sorobanError);
-      console.log("Continuing without Soroban event indexing...");
-    }
-
-    // Start HTTP server
-    httpServer.listen(PORT, () => {
-      console.log(`Server is running on port ${PORT}`);
-      console.log(`REST API available at: http://localhost:${PORT}`);
-      if (graphQLServer) {
-        console.log(
-          `GraphQL API available at: http://localhost:${PORT}/graphql`,
-        );
-      }
-    });
-  } catch (error) {
-    console.error("Unable to start server:", error);
+    console.error('Unable to start server:', error);
     process.exit(1);
   }
+};
+
+startServer();
+    };
+
+// Initialize Vault Balance Monitoring Job
+try {
+  vaultBalanceMonitoringJob.start();
+  console.log("Vault Balance Monitoring Job started successfully.");
+} catch (jobError) {
+  console.error("Failed to initialize Vault Balance Monitoring Job:", jobError);
+}
+
+// Initialize Vesting State Reconciliation Job
+try {
+  const vestingStateReconciliationJob = new VestingStateReconciliationJob();
+  vestingStateReconciliationJob.start();
+  console.log("Vesting State Reconciliation Job started successfully.");
+} catch (jobError) {
+  console.error("Failed to initialize Vesting State Reconciliation Job:", jobError);
+}
+
+// Initialize claim webhook listener
+try {
+  claimWebhookListenerService.start();
+  console.log("Claim Webhook Listener started successfully.");
+} catch (listenerError) {
+  console.error("Failed to initialize Claim Webhook Listener:", listenerError);
+}
+
+// Initialize Stellar Path Payment Listener
+try {
+  stellarPathPaymentListener.start();
+  console.log("Stellar Path Payment Listener started successfully.");
+} catch (listenerError) {
+  console.error("Failed to initialize Stellar Path Payment Listener:", listenerError);
+}
+// Start background metrics collection
+setInterval(async () => {
+  try {
+    const { activeDbConnections, totalIndexedBlocks } = metricsService;
+    const { writeSequelize } = require('./database/connection');
+    if (writeSequelize && writeSequelize.connectionManager && writeSequelize.connectionManager.pool) {
+      const activeConnections = writeSequelize.connectionManager.pool.size - writeSequelize.connectionManager.pool.available;
+      activeDbConnections.set(activeConnections);
+    }
+
+    const { ClaimsHistory } = require('./models');
+    const maxBlock = await ClaimsHistory.max('block_number');
+    if (maxBlock) {
+      totalIndexedBlocks.set(parseInt(maxBlock));
+    }
+  } catch (error) {
+    console.error('Error updating metrics:', error);
+  }
+}, 15000);
+
+// Initialize Soroban Event Poller Service
+try {
+  const SorobanEventPollerService = require('./services/sorobanEventPollerService');
+  const SorobanEventProcessor = require('./services/sorobanEventProcessor');
+
+  const sorobanEventPoller = new SorobanEventPollerService({
+    pollInterval: parseInt(process.env.SOROBAN_POLL_INTERVAL) || 30000,
+    batchSize: parseInt(process.env.SOROBAN_BATCH_SIZE) || 100,
+    contractAddresses: process.env.SOROBAN_CONTRACT_ADDRESSES ?
+      process.env.SOROBAN_CONTRACT_ADDRESSES.split(',') : []
+  });
+
+  const sorobanEventProcessor = new SorobanEventProcessor({
+    batchSize: parseInt(process.env.SOROBAN_PROCESSOR_BATCH_SIZE) || 50,
+    processingDelay: parseInt(process.env.SOROBAN_PROCESSOR_DELAY) || 1000
+  });
+
+  // Start both services
+  await sorobanEventPoller.start();
+  await sorobanEventProcessor.startProcessing();
+
+  console.log("Soroban Event Poller and Processor services started successfully.");
+
+  // Store services globally for access in routes
+  global.sorobanEventPoller = sorobanEventPoller;
+  global.sorobanEventProcessor = sorobanEventProcessor;
+
+} catch (sorobanError) {
+  console.error("Failed to initialize Soroban Event services:", sorobanError);
+  console.log("Continuing without Soroban event indexing...");
+}
+
+// Start HTTP server
+httpServer.listen(PORT, () => {
+  console.log(`Server is running on port ${PORT}`);
+  console.log(`REST API available at: http://localhost:${PORT}`);
+  if (graphQLServer) {
+    console.log(
+      `GraphQL API available at: http://localhost:${PORT}/graphql`,
+    );
+  }
+});
+  } catch (error) {
+  console.error("Unable to start server:", error);
+  process.exit(1);
+}
 };
 
 // ✅ Only start once if run directly

@@ -1,5 +1,5 @@
-C:\Users\dell\backend\contracts\target\debug\build\curve25519-dalek-7892e25eb9308b9c\build_script_build-7892e25eb9308b9c.d: C:\Users\dell\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\curve25519-dalek-4.1.3\build.rs
+C:\Users\dmanl\OneDrive\Documents\Php\vvbackend\contracts\target\debug\build\curve25519-dalek-7892e25eb9308b9c\build_script_build-7892e25eb9308b9c.d: C:\Users\dmanl\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\curve25519-dalek-4.1.3\build.rs
 
-C:\Users\dell\backend\contracts\target\debug\build\curve25519-dalek-7892e25eb9308b9c\build_script_build-7892e25eb9308b9c.exe: C:\Users\dell\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\curve25519-dalek-4.1.3\build.rs
+C:\Users\dmanl\OneDrive\Documents\Php\vvbackend\contracts\target\debug\build\curve25519-dalek-7892e25eb9308b9c\build_script_build-7892e25eb9308b9c.exe: C:\Users\dmanl\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\curve25519-dalek-4.1.3\build.rs
 
-C:\Users\dell\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\curve25519-dalek-4.1.3\build.rs:
+C:\Users\dmanl\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\curve25519-dalek-4.1.3\build.rs:

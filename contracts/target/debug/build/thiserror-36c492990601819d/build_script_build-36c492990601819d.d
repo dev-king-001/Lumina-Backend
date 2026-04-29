@@ -1,5 +1,5 @@
-C:\Users\dell\backend\contracts\target\debug\build\thiserror-36c492990601819d\build_script_build-36c492990601819d.d: C:\Users\dell\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\thiserror-1.0.69\build.rs
+C:\Users\dmanl\OneDrive\Documents\Php\vvbackend\contracts\target\debug\build\thiserror-36c492990601819d\build_script_build-36c492990601819d.d: C:\Users\dmanl\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\thiserror-1.0.69\build.rs
 
-C:\Users\dell\backend\contracts\target\debug\build\thiserror-36c492990601819d\build_script_build-36c492990601819d.exe: C:\Users\dell\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\thiserror-1.0.69\build.rs
+C:\Users\dmanl\OneDrive\Documents\Php\vvbackend\contracts\target\debug\build\thiserror-36c492990601819d\build_script_build-36c492990601819d.exe: C:\Users\dmanl\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\thiserror-1.0.69\build.rs
 
-C:\Users\dell\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\thiserror-1.0.69\build.rs:
+C:\Users\dmanl\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\thiserror-1.0.69\build.rs:

@@ -12,6 +12,7 @@
     "test:integration": "cross-env NODE_ENV=test jest test/auth.integration.test.js --forceExit",
     "test:e2e": "playwright test",
     "test:e2e:headed": "playwright test --headed",
+    "test:parity": "cross-env NODE_ENV=test jest --testPathPattern='sorobanVestingParity.test' --forceExit --verbose",
     "test:all": "npm run test:integration && npm run test:e2e"
   },
   "dependencies": {
