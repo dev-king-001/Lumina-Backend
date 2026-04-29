@@ -225,6 +225,24 @@ class VestingService {
     const addAmount = parseFloat(amount) || 0;
     await vault.update({ total_amount: String(currentTotal + addAmount) });
 
+    // Schedule unlock events in the priority queue
+    const vestingUnlockSyncService = require('./vestingUnlockSyncService');
+    if (subSchedule.cliff_date) {
+      vestingUnlockSyncService.scheduleEvent({
+        type: 'CLIFF_REACHED',
+        subScheduleId: subSchedule.id,
+        vaultId: vault.id
+      }, subSchedule.cliff_date);
+    }
+    
+    if (subSchedule.end_timestamp) {
+      vestingUnlockSyncService.scheduleEvent({
+        type: 'VESTING_COMPLETE',
+        subScheduleId: subSchedule.id,
+        vaultId: vault.id
+      }, subSchedule.end_timestamp);
+    }
+
     return subSchedule;
   }
 

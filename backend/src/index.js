@@ -240,6 +240,7 @@ const multiSigRevocationService = require("./services/multiSigRevocationService"
 const dividendService = require("./services/dividendService");
 const accountConsolidationService = require("./services/accountConsolidationService");
 const VaultService = require("./services/vaultService");
+const vestingUnlockSyncService = require("./services/vestingUnlockSyncService");
 const batchRevocationService = require("./services/batchRevocationService");
 const monthlyReportJob = require("./jobs/monthlyReportJob");
 const { VaultReconciliationJob } = require("./jobs/vaultReconciliationJob");
@@ -2648,6 +2649,14 @@ const startServer = async () => {
     } catch (sorobanError) {
       console.error("Failed to initialize Soroban Event services:", sorobanError);
       console.log("Continuing without Soroban event indexing...");
+    }
+
+    // Initialize Vesting Unlock Sync Service (Priority Queue based)
+    try {
+      await vestingUnlockSyncService.start();
+      console.log("Vesting Unlock Sync Service started successfully.");
+    } catch (unlockSyncError) {
+      console.error("Failed to initialize Vesting Unlock Sync Service:", unlockSyncError);
     }
 
     // Start HTTP server
