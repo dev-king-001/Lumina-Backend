@@ -1,5 +1,6 @@
 const nodemailer = require("nodemailer");
 const { Beneficiary } = require("../models");
+const idempotencyKeyService = require("./idempotencyKeyService");
 
 class EmailService {
   constructor() {
@@ -47,16 +48,45 @@ class EmailService {
         return false;
       }
 
-      const info = await this.transporter.sendMail({
-        from: `"Vesting Vault" <${process.env.EMAIL_FROM || "no-reply@vestingvault.com"}>`,
+      // Create email payload for idempotency tracking
+      const emailPayload = {
         to,
         subject,
         text,
         html,
-      });
+        from: `"Vesting Vault" <${process.env.EMAIL_FROM || "no-reply@vestingvault.com"}>`,
+      };
 
-      console.log("Email sent: %s", info.messageId);
-      return true;
+      // Generate idempotency key for this email
+      const idempotencyKey = idempotencyKeyService.generateIdempotencyKey(
+        'email',
+        to,
+        emailPayload,
+        `email_${to}_${subject}_${Date.now()}`
+      );
+
+      // Execute email with idempotency protection
+      const result = await idempotencyKeyService.executeWithIdempotency(
+        'email',
+        to,
+        emailPayload,
+        async () => {
+          const info = await this.transporter.sendMail(emailPayload);
+
+          return {
+            success: true,
+            responseStatus: 200, // SMTP success
+            responseBody: info.messageId,
+          };
+        }
+      );
+
+      if (result.success) {
+        console.log("Email sent: %s%s", result.responseBody, result.fromCache ? ' (from cache)' : '');
+        return true;
+      }
+
+      return false;
     } catch (error) {
       console.error("Error sending email:", error.message);
       return false;

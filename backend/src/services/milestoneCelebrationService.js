@@ -4,6 +4,7 @@ const MilestoneCelebrationWebhook = require('../models/milestoneCelebrationWebho
 const VestingMilestone = require('../models/vestingMilestone');
 const Vault = require('../models/vault');
 const Beneficiary = require('../models/beneficiary');
+const idempotencyKeyService = require('./idempotencyKeyService');
 
 class MilestoneCelebrationService {
   constructor() {
@@ -118,25 +119,56 @@ class MilestoneCelebrationService {
     try {
       const payload = this.formatPayload(webhook, milestoneData);
       
-      // Add signature if secret token is configured
-      const headers = {
-        'Content-Type': 'application/json',
-        'User-Agent': 'VestingVault-MilestoneCelebration/1.0'
-      };
+      // Generate idempotency key for this milestone webhook
+      const idempotencyKey = idempotencyKeyService.generateIdempotencyKey(
+        'milestone',
+        webhook.webhook_url,
+        payload,
+        `milestone_${milestoneData.id}_${webhook.id}_${milestoneData.type}`
+      );
 
-      if (webhook.secret_token) {
-        const signature = this.generateSignature(payload, webhook.secret_token);
-        headers['X-Vesting-Signature'] = signature;
+      // Execute webhook with idempotency protection
+      const result = await idempotencyKeyService.executeWithIdempotency(
+        'milestone',
+        webhook.webhook_url,
+        payload,
+        async () => {
+          // Add signature if secret token is configured
+          const headers = {
+            'Content-Type': 'application/json',
+            'User-Agent': 'VestingVault-MilestoneCelebration/1.0',
+            'Idempotency-Key': idempotencyKey,
+          };
+
+          if (webhook.secret_token) {
+            const signature = this.generateSignature(payload, webhook.secret_token);
+            headers['X-Vesting-Signature'] = signature;
+          }
+
+          const response = await axios.post(webhook.webhook_url, payload, {
+            headers,
+            timeout: 10000,
+            maxRedirects: 3
+          });
+
+          if (response.status >= 200 && response.status < 300) {
+            return {
+              success: true,
+              responseStatus: response.status,
+              responseBody: response.data,
+            };
+          }
+
+          throw new Error(`Milestone webhook failed with status ${response.status}`);
+        }
+      );
+
+      if (result.success) {
+        console.log(`Webhook sent successfully to ${webhook.webhook_type}: ${webhook.webhook_url}${result.fromCache ? ' (from cache)' : ''}`);
+        return result.responseBody;
       }
 
-      const response = await axios.post(webhook.webhook_url, payload, {
-        headers,
-        timeout: 10000,
-        maxRedirects: 3
-      });
-
-      console.log(`Webhook sent successfully to ${webhook.webhook_type}: ${webhook.webhook_url}`);
-      return response.data;
+      throw new Error(result.message || 'Milestone webhook operation failed');
 
     } catch (error) {
       console.error(`Failed to send webhook to ${webhook.webhook_url}:`, error.message);
