@@ -18,7 +18,7 @@
   "dependencies": {
     "@apollo/server": "^4.9.5",
     "@aws-sdk/client-secrets-manager": "^3.1037.0",
-    "@graphql-tools/schema": "^10.0.2",
+    "@graphql-tools/schema": "^10.0.33",
     "@nestjs-redis/throttler-storage": "^1.2.0",
     "@nestjs/bullmq": "^11.0.4",
     "@nestjs/common": "^11.1.19",
