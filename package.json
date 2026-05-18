@@ -62,7 +62,6 @@
     "dataloader": "^2.2.2",
     "date-fns": "^3.0.0",
     "dotenv": "^17.4.2",
-    "ethers": "^6.8.1",
     "express": "^5.2.1",
     "express-rate-limit": "^7.1.0",
     "fluent-ffmpeg": "^2.1.2",
