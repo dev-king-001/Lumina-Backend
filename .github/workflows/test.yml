@@ -1,4 +1,4 @@
-name: Vesting Vault Tests
+name: Lumina-etwork Tests
 
 on:
   push:
@@ -39,4 +39,3 @@ jobs:
       - name: Generate coverage report
         working-directory: ./backend
         run: npm run test:coverage
-
