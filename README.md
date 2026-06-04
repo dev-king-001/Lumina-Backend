@@ -1,6 +1,6 @@
-# Vesting Vault Backend & Contracts
+# Lumina Network Backend & Contracts
 
-This repository contains the Vesting Vault ecosystem, including the Node.js backend API and the Soroban Rust smart contracts.
+This repository contains the Lumina Network ecosystem, including the Node.js backend API and the Soroban Rust smart contracts.
 
 ## Project Structure
 
