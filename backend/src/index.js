@@ -1766,7 +1766,7 @@ app.get("/api/token/:address/distribution", async (req, res) => {
           createdBy
         ),
 
-        res, status(201).json({
+        res.status(201).json({
           success: true,
           data: dividendRound
         }),
