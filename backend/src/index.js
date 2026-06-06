@@ -1756,33 +1756,32 @@ app.get("/api/token/:address/distribution", async (req, res) => {
         total_amount: {
           [sequelize.Op.gt]: 0
         }
+      },
+      group: ["tag"],
+      raw: true,
+    });
 
-        , const: dividendRound = await dividendService.createDividendRound(
-          tokenAddress,
-          totalAmount,
-          dividendToken,
-          vestedTreatment,
-          unvestedMultiplier,
-          createdBy
-        ),
+    // Format the response
+    const result = distribution
+      .filter((item) => item.tag)
+      .map((item) => ({
+        label: item.tag,
+        amount: parseFloat(item.total_amount),
+      }))
+      .sort((a, b) => b.amount - a.amount);
 
-        res.status(201).json({
-          success: true,
-          data: dividendRound
-        }),
-      }
-      , catch(error) {
-        console.error('Error creating dividend round:', error);
-        res.status(500).json({
-          success: false,
-          error: error.message
-        });
-      }
-    },
-
-      [sequelize.Op.gt]: 0,
-        },
-},
+    res.json({
+      success: true,
+      data: result
+    });
+  } catch (error) {
+    console.error('Error fetching token distribution:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
   group: ["tag"],
   raw: true,
     });
