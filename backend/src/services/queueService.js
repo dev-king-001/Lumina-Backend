@@ -19,6 +19,7 @@ const heavyComputationQueue = new Queue('heavy-computation', {
 });
 
 class QueueService {
+  async addGenerateCsvJob(vaultId) {
     return await heavyComputationQueue.add('generate-csv', {
       type: 'CSV',
       vaultId
