@@ -154,19 +154,32 @@ jobs:
           cd contracts
           cargo build --target wasm32-unknown-unknown --release
           
-      - name: Start backend server
+      - name: Create backend .env
         working-directory: ./backend
         run: |
           cp .env.example .env
+          echo "DB_HOST=localhost"     >> .env
+          echo "DB_PORT=5432"         >> .env
+          echo "DB_NAME=vesting_vault_test" >> .env
+          echo "DB_USER=postgres"     >> .env
+          echo "DB_PASSWORD=password" >> .env
+          echo "NODE_ENV=test"        >> .env
+          echo "JWT_SECRET=test-jwt-secret" >> .env
+          echo "JWT_REFRESH_SECRET=test-refresh-secret" >> .env
+
+      - name: Start backend server
+        working-directory: ./backend
+        run: |
           mkdir -p data
-          export NODE_ENV=test
-          export DB_HOST=localhost
-          export DB_PORT=5432
-          export DB_NAME=vesting_vault_test
-          export DB_USER=postgres
-          export DB_PASSWORD=password
           npm start &
           sleep 15
+        env:
+          NODE_ENV: test
+          DB_HOST: localhost
+          DB_PORT: 5432
+          DB_NAME: vesting_vault_test
+          DB_USER: postgres
+          DB_PASSWORD: password
           
       - name: Run integration tests
         run: |

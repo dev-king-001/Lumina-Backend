@@ -1,12 +1,21 @@
+// Mock dependencies BEFORE requires
+jest.mock('./sorobanRpcClient');
+jest.mock('../models');
+jest.mock('../database/connection', () => {
+  const mockSequelize = {
+    transaction: jest.fn(),
+  };
+  return {
+    sequelize: mockSequelize,
+    initializeDatabase: jest.fn(),
+    getSequelize: jest.fn().mockResolvedValue(mockSequelize),
+  };
+});
+
 const LedgerResyncService = require('./ledgerResyncService');
 const SorobanRpcClient = require('./sorobanRpcClient');
 const { SorobanEvent, IndexerState, ClaimsHistory, SubSchedule } = require('../models');
 const sequelize = require('../database/connection');
-
-// Mock dependencies
-jest.mock('./sorobanRpcClient');
-jest.mock('../models');
-jest.mock('../database/connection');
 
 describe('LedgerResyncService', () => {
   let resyncService;
@@ -27,14 +36,9 @@ describe('LedgerResyncService', () => {
     };
     SorobanRpcClient.mockImplementation(() => mockRpcClient);
 
-    // Mock sequelize
-    mockSequelize = {
-      transaction: jest.fn(),
-      Sequelize: {
-        Op: {}
-      }
-    };
-    sequelize.mockReturnValue(mockSequelize);
+    // Access the mock sequelize instance
+    mockSequelize = sequelize.sequelize;
+    mockSequelize.transaction = jest.fn();
 
     // Create resync service instance
     resyncService = new LedgerResyncService({

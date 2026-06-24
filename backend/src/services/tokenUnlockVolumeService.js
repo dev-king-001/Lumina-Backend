@@ -29,6 +29,10 @@ class TokenUnlockVolumeService {
         startDate = new Date()
       } = options;
 
+      // Validate and normalize startDate
+      const normalizedStartDate = startDate instanceof Date && !isNaN(startDate.getTime())
+        ? startDate : new Date();
+
       // Get all active vaults with their schedules
       const vaults = await this.getVaultsWithSchedules({
         tokenAddress,
@@ -37,7 +41,7 @@ class TokenUnlockVolumeService {
       });
 
       // Calculate daily unlock volumes for the projection period
-      const projectionData = this.calculateDailyUnlocks(vaults, startDate, months);
+      const projectionData = this.calculateDailyUnlocks(vaults, normalizedStartDate, months);
 
       // Aggregate insights
       const insights = this.generateInsights(projectionData);
@@ -50,8 +54,8 @@ class TokenUnlockVolumeService {
           metadata: {
             totalVaults: vaults.length,
             projectionPeriod: months,
-            startDate: startDate.toISOString(),
-            endDate: new Date(startDate.getTime() + (months * 30 * 24 * 60 * 60 * 1000)).toISOString(),
+            startDate: normalizedStartDate.toISOString(),
+            endDate: new Date(normalizedStartDate.getTime() + (months * 30 * 24 * 60 * 60 * 1000)).toISOString(),
             filters: {
               tokenAddress,
               orgId,

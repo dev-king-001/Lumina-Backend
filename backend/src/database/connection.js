@@ -65,9 +65,11 @@ const initializeDatabase = async () => {
 // Initialize immediately for backward compatibility
 let initPromise = initializeDatabase();
 
-// Export a promise that resolves to the initialized sequelize instance
+// Export getters to ensure tests always get the initialized instance
 module.exports = { 
-  sequelize: sequelize,
+  get sequelize() {
+    return sequelize;
+  },
   initializeDatabase,
   getSequelize: async () => {
     await initPromise;

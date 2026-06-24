@@ -6,7 +6,15 @@ const sequelize = require('../database/connection');
 // Mock dependencies
 jest.mock('./sorobanRpcClient');
 jest.mock('../models');
-jest.mock('../database/connection');
+const mockSequelizeForReorg = {
+  transaction: jest.fn(),
+  Sequelize: { Op: {} },
+};
+jest.mock('../database/connection', () => ({
+  sequelize: mockSequelizeForReorg,
+  initializeDatabase: jest.fn(),
+  getSequelize: jest.fn(),
+}));
 
 describe('LedgerReorgDetector', () => {
   let detector;
@@ -29,13 +37,7 @@ describe('LedgerReorgDetector', () => {
     SorobanRpcClient.mockImplementation(() => mockRpcClient);
 
     // Mock sequelize
-    mockSequelize = {
-      transaction: jest.fn(),
-      Sequelize: {
-        Op: {}
-      }
-    };
-    sequelize.mockReturnValue(mockSequelize);
+    mockSequelize = sequelize.sequelize;
 
     // Create detector instance
     detector = new LedgerReorgDetector({
