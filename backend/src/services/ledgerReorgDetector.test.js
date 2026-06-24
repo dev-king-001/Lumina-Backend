@@ -45,6 +45,11 @@ describe('LedgerReorgDetector', () => {
     // Mock sequelize
     mockSequelize = sequelize.sequelize;
 
+    // Default model mocks — individual tests can override
+    SorobanEvent.findAll.mockResolvedValue([]);
+    IndexerState.findByPk.mockResolvedValue(null);
+    IndexerState.findOne.mockResolvedValue(null);
+
     // Create detector instance
     detector = new LedgerReorgDetector({
       maxReorgDepth: 50,
