@@ -1,39 +1,51 @@
-export interface EntropyMetricSink {
-  gauge(name: string, value: number, labels?: Record<string, string>): void;
-  alert?(name: string, value: number, labels?: Record<string, string>): void;
+export enum MemberStatus {
+  Alive = 'Alive',
+  Suspect = 'Suspect',
+  Dead = 'Dead',
 }
 
-export const MEMBERSHIP_VIEW_OVERLAP_METRIC = 'membership_view_overlap_percentage';
-export const MEMBERSHIP_VIEW_OVERLAP_ALERT = 'membership_view_overlap_high';
-export const MEMBERSHIP_VIEW_OVERLAP_ALERT_THRESHOLD = 20;
+export interface Member {
+  id: string;
+  address: string;
+  status: MemberStatus;
+  incarnation: number;
+  lastUpdated: number;
+}
 
-export class MembershipViewEntropyTracker {
-  private previousView: Set<string> | null = null;
+export class MemberList {
+  private members: Map<string, Member> = new Map();
 
-  constructor(private readonly metricSink: EntropyMetricSink, private readonly labels: Record<string, string> = {}) {}
-
-  recordRound(peerIds: readonly string[]): number {
-    const currentView = new Set(peerIds);
-    const overlap = this.previousView ? this.calculateOverlap(this.previousView, currentView) : 0;
-
-    this.metricSink.gauge(MEMBERSHIP_VIEW_OVERLAP_METRIC, overlap, this.labels);
-    if (overlap > MEMBERSHIP_VIEW_OVERLAP_ALERT_THRESHOLD) {
-      this.metricSink.alert?.(MEMBERSHIP_VIEW_OVERLAP_ALERT, overlap, this.labels);
+  addOrUpdateMember(member: Member): void {
+    const existing = this.members.get(member.id);
+    if (!existing) {
+      this.members.set(member.id, member);
+      return;
     }
 
-    this.previousView = currentView;
-    return overlap;
+    if (member.incarnation > existing.incarnation) {
+      this.members.set(member.id, member);
+    } else if (member.incarnation === existing.incarnation) {
+      // Suspect overrides Alive, Dead overrides Suspect or Alive
+      if (
+        (existing.status === MemberStatus.Alive && member.status === MemberStatus.Suspect) ||
+        (existing.status !== MemberStatus.Dead && member.status === MemberStatus.Dead)
+      ) {
+        this.members.set(member.id, member);
+      }
+    }
   }
 
-  private calculateOverlap(previousView: Set<string>, currentView: Set<string>): number {
-    if (previousView.size === 0 && currentView.size === 0) return 0;
-    const [smaller, larger] = previousView.size < currentView.size
-      ? [previousView, currentView]
-      : [currentView, previousView];
-    let shared = 0;
-    for (const peerId of smaller) {
-      if (larger.has(peerId)) shared += 1;
-    }
-    return (shared / Math.max(previousView.size, currentView.size)) * 100;
+  getMember(id: string): Member | undefined {
+    return this.members.get(id);
+  }
+
+  getAllMembers(): Member[] {
+    return Array.from(this.members.values());
+  }
+
+  getRandomPeers(count: number, excludeId?: string): Member[] {
+    const pool = this.getAllMembers().filter(m => m.id !== excludeId && m.status !== MemberStatus.Dead);
+    const shuffled = [...pool].sort(() => 0.5 - Math.random());
+    return shuffled.slice(0, count);
   }
 }
