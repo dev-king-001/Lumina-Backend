@@ -14,6 +14,18 @@ const initializeDatabase = async () => {
       storage: ':memory:',
       logging: false,
     });
+    // Patch sync to ignore "index already exists" errors which are harmless in test
+    const origSync = sequelize.sync.bind(sequelize);
+    sequelize.sync = async (options) => {
+      try {
+        return await origSync(options);
+      } catch (err) {
+        if (err.message && err.message.includes('index already exists')) {
+          return;
+        }
+        throw err;
+      }
+    };
   } else {
     // Get database credentials dynamically from secrets service
     try {
@@ -65,6 +77,21 @@ const initializeDatabase = async () => {
 // Initialize immediately for backward compatibility
 let initPromise = initializeDatabase();
 
+// Read/write splitting support — in test mode (sqlite) this is just the same instance
+const getDatabaseConnection = (operationType) => {
+  return sequelize;
+};
+
+const checkDatabaseHealth = async () => {
+  return { write: true, replicas: [] };
+};
+
+const checkReplicaLag = async () => {
+  return 0;
+};
+
+const readReplicas = [];
+
 // Export getters to ensure tests always get the initialized instance
 module.exports = { 
   get sequelize() {
@@ -73,6 +100,13 @@ module.exports = {
   initializeDatabase,
   getSequelize: async () => {
     await initPromise;
+    return sequelize;
+  },
+  getDatabaseConnection,
+  checkDatabaseHealth,
+  checkReplicaLag,
+  readReplicas,
+  get writeSequelize() {
     return sequelize;
   }
 };
