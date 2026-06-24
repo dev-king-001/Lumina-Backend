@@ -80,6 +80,9 @@ jobs:
           echo "DB_PASSWORD=password" >> .env
           echo "JWT_SECRET=test-jwt-secret" >> .env
           echo "JWT_REFRESH_SECRET=test-refresh-secret" >> .env
+          echo "TRANSPARENCY_PRIVATE_KEY=test-transparency-private-key" >> .env
+          echo "TRANSPARENCY_PUBLIC_KEY=test-transparency-public-key" >> .env
+          cp .env .env.test
         
       - name: Create data directory
         working-directory: ./backend
