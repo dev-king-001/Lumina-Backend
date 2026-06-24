@@ -2,8 +2,16 @@
 jest.mock('./sorobanRpcClient');
 jest.mock('../models');
 jest.mock('../database/connection', () => {
+  const mockModel = {
+    associate: jest.fn(),
+    belongsTo: jest.fn(),
+    hasMany: jest.fn(),
+    findAll: jest.fn(),
+    findByPk: jest.fn(),
+    create: jest.fn(),
+  };
   const mockSequelize = {
-    define: jest.fn(),
+    define: jest.fn().mockReturnValue(mockModel),
     transaction: jest.fn(),
   };
   return {
