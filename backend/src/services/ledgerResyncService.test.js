@@ -10,11 +10,14 @@ jest.mock('../models', () => ({
   ClaimsHistory: makeMockModel(),
   SubSchedule: makeMockModel(),
 }));
-jest.mock('../database/connection', () => ({
-  sequelize: { transaction: jest.fn() },
-  initializeDatabase: jest.fn(),
-  getSequelize: jest.fn(),
-}));
+jest.mock('../database/connection', () => {
+  const { Op } = jest.requireActual('sequelize');
+  return {
+    sequelize: { transaction: jest.fn(), Sequelize: { Op } },
+    initializeDatabase: jest.fn(),
+    getSequelize: jest.fn(),
+  };
+});
 
 const LedgerResyncService = require('./ledgerResyncService');
 const SorobanRpcClient = require('./sorobanRpcClient');
