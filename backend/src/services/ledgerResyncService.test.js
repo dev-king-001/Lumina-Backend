@@ -1,26 +1,20 @@
 // Mock dependencies BEFORE requires
 jest.mock('./sorobanRpcClient');
-jest.mock('../models');
-jest.mock('../database/connection', () => {
-  const mockModel = function() {};
-  mockModel.associate = jest.fn();
-  mockModel.belongsTo = jest.fn();
-  mockModel.hasMany = jest.fn();
-  mockModel.findAll = jest.fn();
-  mockModel.findByPk = jest.fn();
-  mockModel.create = jest.fn();
-  mockModel.prototype = {};
-
-  const mockSequelize = {
-    define: jest.fn().mockReturnValue(mockModel),
-    transaction: jest.fn(),
-  };
-  return {
-    sequelize: mockSequelize,
-    initializeDatabase: jest.fn(),
-    getSequelize: jest.fn().mockResolvedValue(mockSequelize),
-  };
+const makeMockModel = () => ({
+  findAll: jest.fn(), findByPk: jest.fn(), findOne: jest.fn(),
+  create: jest.fn(), update: jest.fn(), destroy: jest.fn(), max: jest.fn(),
 });
+jest.mock('../models', () => ({
+  SorobanEvent: makeMockModel(),
+  IndexerState: makeMockModel(),
+  ClaimsHistory: makeMockModel(),
+  SubSchedule: makeMockModel(),
+}));
+jest.mock('../database/connection', () => ({
+  sequelize: { transaction: jest.fn() },
+  initializeDatabase: jest.fn(),
+  getSequelize: jest.fn(),
+}));
 
 const LedgerResyncService = require('./ledgerResyncService');
 const SorobanRpcClient = require('./sorobanRpcClient');
