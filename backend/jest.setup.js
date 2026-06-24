@@ -45,6 +45,15 @@ jest.mock('@opentelemetry/auto-instrumentations-node', () => {
   catch { return { getNodeAutoInstrumentations: jest.fn() }; }
 });
 
+// Mock firebase-admin globally to avoid requiring service account file
+jest.mock('firebase-admin', () => ({
+  initializeApp: jest.fn(),
+  credential: { cert: jest.fn() },
+  messaging: jest.fn(() => ({
+    sendEachForMulticast: jest.fn().mockResolvedValue({ successCount: 0, failureCount: 0 }),
+  })),
+}));
+
 // Setup OpenAPI validation for tests
 try {
   const jestOpenAPI = require('jest-openapi').default;

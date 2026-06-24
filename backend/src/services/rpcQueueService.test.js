@@ -3,7 +3,24 @@ const QueueService = require('./queueService');
 const SorobanRpcClient = require('./sorobanRpcClient');
 
 // Mock dependencies
-jest.mock('./queueService');
+jest.mock('./queueService', () => {
+  const mockQueueService = {
+    connect: jest.fn().mockResolvedValue(),
+    disconnect: jest.fn().mockResolvedValue(),
+    getQueue: jest.fn(),
+    getWorker: jest.fn(),
+    addJob: jest.fn(),
+    getQueueStats: jest.fn(),
+    getFailedJobs: jest.fn(),
+    deleteJob: jest.fn(),
+    clearQueue: jest.fn(),
+    pauseQueue: jest.fn(),
+    resumeQueue: jest.fn(),
+    getConnectionStatus: jest.fn(),
+    healthCheck: jest.fn()
+  };
+  return mockQueueService;
+});
 jest.mock('./sorobanRpcClient');
 jest.mock('@sentry/node');
 jest.mock('./slackWebhookService');
@@ -17,24 +34,7 @@ describe('RpcQueueService', () => {
     // Reset all mocks
     jest.clearAllMocks();
 
-    // Mock QueueService
-    mockQueueService = {
-      connect: jest.fn().mockResolvedValue(),
-      disconnect: jest.fn().mockResolvedValue(),
-      getQueue: jest.fn(),
-      getWorker: jest.fn(),
-      addJob: jest.fn(),
-      getQueueStats: jest.fn(),
-      getFailedJobs: jest.fn(),
-      deleteJob: jest.fn(),
-      clearQueue: jest.fn(),
-      pauseQueue: jest.fn(),
-      resumeQueue: jest.fn(),
-      getConnectionStatus: jest.fn(),
-      healthCheck: jest.fn()
-    };
-
-    QueueService.mockImplementation(() => mockQueueService);
+    mockQueueService = require('./queueService');
 
     // Mock SorobanRpcClient
     mockRpcClient = {
