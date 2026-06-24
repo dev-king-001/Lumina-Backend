@@ -8,6 +8,7 @@ jest.mock('./sorobanRpcClient');
 jest.mock('../models');
 jest.mock('../database/connection', () => ({
   sequelize: {
+    define: jest.fn(),
     transaction: jest.fn(),
     Sequelize: { Op: {} },
   },

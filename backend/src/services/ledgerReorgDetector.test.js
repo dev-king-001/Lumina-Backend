@@ -7,6 +7,7 @@ const sequelize = require('../database/connection');
 jest.mock('./sorobanRpcClient');
 jest.mock('../models');
 const mockSequelizeForReorg = {
+  define: jest.fn(),
   transaction: jest.fn(),
   Sequelize: { Op: {} },
 };

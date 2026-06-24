@@ -26,6 +26,8 @@ jest.mock('sequelize', () => {
   };
 });
 
+const { Op } = require('sequelize');
+
 describe('TokenUnlockVolumeService', () => {
   let service;
 
@@ -133,7 +135,7 @@ describe('TokenUnlockVolumeService', () => {
         where: {
           is_active: true,
           is_blacklisted: false,
-          tag: expect.objectContaining({ in: vaultTags })
+          tag: expect.objectContaining({ [Op.in]: vaultTags })
         },
         include: expect.any(Array)
       });
