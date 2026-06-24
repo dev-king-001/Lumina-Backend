@@ -11,13 +11,39 @@ jest.mock('uuid', () => ({
 }));
 
 // Mock OpenTelemetry to prevent async SDK init leaks after tests
-jest.mock('@opentelemetry/sdk-node', () => ({ NodeSDK: jest.fn() }));
-jest.mock('@opentelemetry/exporter-otlp-grpc', () => ({ OTLPTraceExporter: jest.fn() }));
-jest.mock('@opentelemetry/exporter-jaeger', () => ({ JaegerExporter: jest.fn() }));
-jest.mock('@opentelemetry/resources', () => ({ Resource: jest.fn() }));
-jest.mock('@opentelemetry/semantic-conventions', () => ({}));
-jest.mock('@opentelemetry/api', () => ({ trace: { getTracer: jest.fn() }, SpanStatusCode: {}, SpanKind: {} }));
-jest.mock('@opentelemetry/auto-instrumentations-node', () => ({ getNodeAutoInstrumentations: jest.fn() }));
+// Keep actual API exports so downstream packages (gcp, aws) can use them
+jest.mock('@opentelemetry/sdk-node', () => {
+  try { const a = jest.requireActual('@opentelemetry/sdk-node'); return { ...a, NodeSDK: jest.fn() }; }
+  catch { return { NodeSDK: jest.fn() }; }
+});
+jest.mock('@opentelemetry/exporter-otlp-grpc', () => {
+  try { const a = jest.requireActual('@opentelemetry/exporter-otlp-grpc'); return { ...a, OTLPTraceExporter: jest.fn() }; }
+  catch { return { OTLPTraceExporter: jest.fn() }; }
+});
+jest.mock('@opentelemetry/exporter-jaeger', () => {
+  try { const a = jest.requireActual('@opentelemetry/exporter-jaeger'); return { ...a, JaegerExporter: jest.fn() }; }
+  catch { return { JaegerExporter: jest.fn() }; }
+});
+jest.mock('@opentelemetry/resources', () => {
+  try { const a = jest.requireActual('@opentelemetry/resources'); return { ...a, Resource: jest.fn() }; }
+  catch { return { Resource: jest.fn() }; }
+});
+jest.mock('@opentelemetry/semantic-conventions', () => {
+  try { return jest.requireActual('@opentelemetry/semantic-conventions'); }
+  catch { return {}; }
+});
+jest.mock('@opentelemetry/api', () => {
+  try {
+    const a = jest.requireActual('@opentelemetry/api');
+    return { ...a, trace: { ...a.trace, getTracer: jest.fn() } };
+  } catch {
+    return { trace: { getTracer: jest.fn() }, SpanStatusCode: {}, SpanKind: {} };
+  }
+});
+jest.mock('@opentelemetry/auto-instrumentations-node', () => {
+  try { const a = jest.requireActual('@opentelemetry/auto-instrumentations-node'); return { ...a, getNodeAutoInstrumentations: jest.fn() }; }
+  catch { return { getNodeAutoInstrumentations: jest.fn() }; }
+});
 
 // Setup OpenAPI validation for tests
 try {
