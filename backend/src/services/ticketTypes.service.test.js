@@ -5,8 +5,9 @@ describe('TicketTypesService', () => {
   let testTicketType;
 
   beforeAll(async () => {
-    // Ensure database connection
+    // Ensure database connection and sync models
     await sequelize.authenticate();
+    await sequelize.sync();
   });
 
   beforeEach(async () => {

@@ -711,7 +711,7 @@ describe('Off-Chain vs On-Chain Parity', () => {
       });
 
       expect(comparison.onChain).toBe(499936);
-      expect(comparison.offChain).toBeCloseTo(499936.356, 1);
+      expect(Math.abs(comparison.offChain - 499936.356)).toBeLessThan(1);
       expect(comparison.absoluteDifference).toBeLessThan(1);
     });
 

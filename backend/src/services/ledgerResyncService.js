@@ -243,7 +243,7 @@ class LedgerResyncService {
       console.log(`[${resyncId}] Deleted ${deletedSchedules} sub-schedule records`);
 
       // Update all indexer states
-      for (const [serviceName, currentSequence] of rollbackPlan.affectedTables) {
+      for (const { table: serviceName } of rollbackPlan.affectedTables) {
         await IndexerState.update(
           { last_ingested_ledger: rollbackPlan.targetSequence },
           {

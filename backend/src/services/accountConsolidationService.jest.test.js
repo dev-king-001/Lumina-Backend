@@ -102,8 +102,8 @@ describe('AccountConsolidationService', () => {
       expect(result.endDate).toBeInstanceOf(Date);
       expect(result.duration).toBeGreaterThan(0);
       
-      // Weighted average should be closer to second date (higher amount)
-      const expectedCliffDate = new Date('2023-02-01'); // Weighted average
+      // Weighted average: (1000*Jan1 + 2000*Mar1) / 3000 = Feb 9
+      const expectedCliffDate = new Date('2023-02-09');
       expect(Math.abs(result.cliffDate.getTime() - expectedCliffDate.getTime())).toBeLessThan(86400000);
     });
 

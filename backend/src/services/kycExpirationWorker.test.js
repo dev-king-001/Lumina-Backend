@@ -2,6 +2,15 @@
  * Tests for KYCExpirationWorker
  */
 
+// Mock firebase-admin before any require
+jest.mock('firebase-admin', () => ({
+  initializeApp: jest.fn(),
+  credential: { cert: jest.fn() },
+  messaging: jest.fn(() => ({
+    sendEachForMulticast: jest.fn().mockResolvedValue({}),
+  })),
+}));
+
 const kycExpirationWorker = require('./kycExpirationWorker');
 const { KycStatus, KycNotification } = require('../models');
 const { sequelize } = require('../database/connection');

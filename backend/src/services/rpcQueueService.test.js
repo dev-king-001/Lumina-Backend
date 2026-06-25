@@ -3,38 +3,48 @@ const QueueService = require('./queueService');
 const SorobanRpcClient = require('./sorobanRpcClient');
 
 // Mock dependencies
-jest.mock('./queueService');
+let mockQueueServiceInstance;
+jest.mock('./queueService', () => {
+  return jest.fn(() => {
+    if (!mockQueueServiceInstance) {
+      mockQueueServiceInstance = {
+        connect: jest.fn().mockResolvedValue(),
+        disconnect: jest.fn().mockResolvedValue(),
+        getQueue: jest.fn(),
+        getWorker: jest.fn(),
+        addJob: jest.fn(),
+        getQueueStats: jest.fn(),
+        getFailedJobs: jest.fn(),
+        deleteJob: jest.fn(),
+        clearQueue: jest.fn(),
+        pauseQueue: jest.fn(),
+        resumeQueue: jest.fn(),
+        getConnectionStatus: jest.fn(),
+        healthCheck: jest.fn()
+      };
+    }
+    return mockQueueServiceInstance;
+  });
+});
 jest.mock('./sorobanRpcClient');
 jest.mock('@sentry/node');
-jest.mock('./slackWebhookService');
+jest.mock('./slackWebhookService', () => ({
+  sendAlert: jest.fn()
+}));
 
 describe('RpcQueueService', () => {
   let rpcQueueService;
-  let mockQueueService;
+  let mockQueueServiceInstance;
   let mockRpcClient;
 
   beforeEach(() => {
     // Reset all mocks
     jest.clearAllMocks();
 
-    // Mock QueueService
-    mockQueueService = {
-      connect: jest.fn().mockResolvedValue(),
-      disconnect: jest.fn().mockResolvedValue(),
-      getQueue: jest.fn(),
-      getWorker: jest.fn(),
-      addJob: jest.fn(),
-      getQueueStats: jest.fn(),
-      getFailedJobs: jest.fn(),
-      deleteJob: jest.fn(),
-      clearQueue: jest.fn(),
-      pauseQueue: jest.fn(),
-      resumeQueue: jest.fn(),
-      getConnectionStatus: jest.fn(),
-      healthCheck: jest.fn()
-    };
-
-    QueueService.mockImplementation(() => mockQueueService);
+    // Reset mockQueueServiceInstance so the constructor creates a fresh one
+    mockQueueServiceInstance = undefined;
+    const QueueServiceConstructor = require('./queueService');
+    mockQueueServiceInstance = QueueServiceConstructor();
 
     // Mock SorobanRpcClient
     mockRpcClient = {
@@ -49,7 +59,7 @@ describe('RpcQueueService', () => {
       getJob: jest.fn()
     };
 
-    mockQueueService.getQueue.mockReturnValue(mockQueue);
+    mockQueueServiceInstance.getQueue.mockReturnValue(mockQueue);
 
     // Create RPC queue service instance
     rpcQueueService = new RpcQueueService({
@@ -88,13 +98,13 @@ describe('RpcQueueService', () => {
     it('should start successfully', async () => {
       await rpcQueueService.start();
 
-      expect(mockQueueService.connect).toHaveBeenCalled();
-      expect(mockQueueService.getQueue).toHaveBeenCalledWith('rpc-fetch', expect.any(Object));
-      expect(mockQueueService.getQueue).toHaveBeenCalledWith('rpc-dead-letter', expect.any(Object));
-      expect(mockQueueService.getQueue).toHaveBeenCalledWith('priority-rpc-fetch', expect.any(Object));
-      expect(mockQueueService.getWorker).toHaveBeenCalledWith('rpc-fetch', expect.any(Function), expect.any(Object));
-      expect(mockQueueService.getWorker).toHaveBeenCalledWith('priority-rpc-fetch', expect.any(Function), expect.any(Object));
-      expect(mockQueueService.getWorker).toHaveBeenCalledWith('rpc-dead-letter', expect.any(Function), expect.any(Object));
+      expect(mockQueueServiceInstance.connect).toHaveBeenCalled();
+      expect(mockQueueServiceInstance.getQueue).toHaveBeenCalledWith('rpc-fetch', expect.any(Object));
+      expect(mockQueueServiceInstance.getQueue).toHaveBeenCalledWith('rpc-dead-letter', expect.any(Object));
+      expect(mockQueueServiceInstance.getQueue).toHaveBeenCalledWith('priority-rpc-fetch', expect.any(Object));
+      expect(mockQueueServiceInstance.getWorker).toHaveBeenCalledWith('rpc-fetch', expect.any(Function), expect.any(Object));
+      expect(mockQueueServiceInstance.getWorker).toHaveBeenCalledWith('priority-rpc-fetch', expect.any(Function), expect.any(Object));
+      expect(mockQueueServiceInstance.getWorker).toHaveBeenCalledWith('rpc-dead-letter', expect.any(Function), expect.any(Object));
       expect(rpcQueueService.isStarted).toBe(true);
     });
 
@@ -105,7 +115,7 @@ describe('RpcQueueService', () => {
     });
 
     it('should throw error when connection fails', async () => {
-      mockQueueService.connect.mockRejectedValue(new Error('Connection failed'));
+      mockQueueServiceInstance.connect.mockRejectedValue(new Error('Connection failed'));
 
       await expect(rpcQueueService.start()).rejects.toThrow('Connection failed');
       expect(rpcQueueService.isStarted).toBe(false);
@@ -118,7 +128,7 @@ describe('RpcQueueService', () => {
 
       await rpcQueueService.stop();
 
-      expect(mockQueueService.disconnect).toHaveBeenCalled();
+      expect(mockQueueServiceInstance.disconnect).toHaveBeenCalled();
       expect(rpcQueueService.isStarted).toBe(false);
     });
 
@@ -157,11 +167,11 @@ describe('RpcQueueService', () => {
       rpcQueueService.isStarted = true;
       
       const mockJob = { id: 'job-123' };
-      mockQueueService.addJob.mockResolvedValue(mockJob);
+      mockQueueServiceInstance.addJob.mockResolvedValue(mockJob);
 
       const job = await rpcQueueService.addRpcJob('getEvents', { startLedger: 100, endLedger: 200 });
 
-      expect(mockQueueService.addJob).toHaveBeenCalledWith('rpc-fetch', 'getEvents', {
+      expect(mockQueueServiceInstance.addJob).toHaveBeenCalledWith('rpc-fetch', 'getEvents', {
         method: 'getEvents',
         params: { startLedger: 100, endLedger: 200 },
         rpcUrl: expect.any(String),
@@ -181,11 +191,11 @@ describe('RpcQueueService', () => {
       rpcQueueService.isStarted = true;
       
       const mockJob = { id: 'job-456' };
-      mockQueueService.addJob.mockResolvedValue(mockJob);
+      mockQueueServiceInstance.addJob.mockResolvedValue(mockJob);
 
       const job = await rpcQueueService.addRpcJob('getLedger', {}, { priority: 'high' });
 
-      expect(mockQueueService.addJob).toHaveBeenCalledWith('priority-rpc-fetch', 'getLedger', expect.any(Object), expect.any(Object));
+      expect(mockQueueServiceInstance.addJob).toHaveBeenCalledWith('priority-rpc-fetch', 'getLedger', expect.any(Object), expect.any(Object));
       expect(job).toBe(mockJob);
     });
 
@@ -197,7 +207,7 @@ describe('RpcQueueService', () => {
 
     it('should throw error when addJob fails', async () => {
       rpcQueueService.isStarted = true;
-      mockQueueService.addJob.mockRejectedValue(new Error('Queue error'));
+      mockQueueServiceInstance.addJob.mockRejectedValue(new Error('Queue error'));
 
       await expect(rpcQueueService.addRpcJob('getEvents', {})).rejects.toThrow('Queue error');
     });
@@ -267,10 +277,10 @@ describe('RpcQueueService', () => {
       };
 
       mockRpcClient.call.mockRejectedValue(new Error('RPC Error'));
-      mockQueueService.addJob.mockResolvedValue({ id: 'dlq-job' });
+      mockQueueServiceInstance.addJob.mockResolvedValue({ id: 'dlq-job' });
 
       await expect(rpcQueueService.processRpcJob(mockJob)).rejects.toThrow('RPC Error');
-      expect(mockQueueService.addJob).toHaveBeenCalledWith('rpc-dead-letter', 'dlq_getEvents', expect.any(Object), expect.any(Object));
+      expect(mockQueueServiceInstance.addJob).toHaveBeenCalledWith('rpc-dead-letter', 'dlq_getEvents', expect.any(Object), expect.any(Object));
       expect(rpcQueueService.stats.failedJobs).toBe(1);
       expect(rpcQueueService.stats.dlqJobs).toBe(1);
     });
@@ -310,7 +320,7 @@ describe('RpcQueueService', () => {
 
   describe('getStats', () => {
     it('should return queue statistics', async () => {
-      mockQueueService.getQueueStats
+      mockQueueServiceInstance.getQueueStats
         .mockResolvedValueOnce({ waiting: 5, active: 2, completed: 100, failed: 3, delayed: 1, total: 111 })
         .mockResolvedValueOnce({ waiting: 1, active: 1, completed: 50, failed: 1, delayed: 0, total: 53 })
         .mockResolvedValueOnce({ waiting: 2, active: 0, completed: 0, failed: 2, delayed: 0, total: 4 });
@@ -356,11 +366,11 @@ describe('RpcQueueService', () => {
         { id: 'dlq-2', method: 'getLedger', error: 'Error 2' }
       ];
 
-      mockQueueService.getFailedJobs.mockResolvedValue(mockDlqJobs);
+      mockQueueServiceInstance.getFailedJobs.mockResolvedValue(mockDlqJobs);
 
       const dlqJobs = await rpcQueueService.getDlqJobs(10);
 
-      expect(mockQueueService.getFailedJobs).toHaveBeenCalledWith('rpc-dead-letter', 10);
+      expect(mockQueueServiceInstance.getFailedJobs).toHaveBeenCalledWith('rpc-dead-letter', 10);
       expect(dlqJobs).toEqual(mockDlqJobs);
     });
   });
@@ -379,13 +389,13 @@ describe('RpcQueueService', () => {
       };
 
       const mockNewJob = { id: 'new-job-456' };
-      mockQueueService.getQueue.mockReturnValue({ getJob: jest.fn().mockResolvedValue(mockDlqJob) });
-      mockQueueService.addJob.mockResolvedValue(mockNewJob);
+      mockQueueServiceInstance.getQueue.mockReturnValue({ getJob: jest.fn().mockResolvedValue(mockDlqJob) });
+      mockQueueServiceInstance.addJob.mockResolvedValue(mockNewJob);
 
       const result = await rpcQueueService.retryDlqJob('dlq-123');
 
       expect(mockDlqJob.remove).toHaveBeenCalled();
-      expect(mockQueueService.addJob).toHaveBeenCalledWith('rpc-fetch', 'getEvents', {
+      expect(mockQueueServiceInstance.addJob).toHaveBeenCalledWith('rpc-fetch', 'getEvents', {
         startLedger: 100,
         rpcUrl: 'http://test-rpc-url',
         priority: 'high',
@@ -396,7 +406,7 @@ describe('RpcQueueService', () => {
     });
 
     it('should throw error when DLQ job not found', async () => {
-      mockQueueService.getQueue.mockReturnValue({ getJob: jest.fn().mockResolvedValue(null) });
+      mockQueueServiceInstance.getQueue.mockReturnValue({ getJob: jest.fn().mockResolvedValue(null) });
 
       await expect(rpcQueueService.retryDlqJob('non-existent')).rejects.toThrow('DLQ job non-existent not found');
     });
@@ -409,7 +419,7 @@ describe('RpcQueueService', () => {
         remove: jest.fn().mockResolvedValue()
       };
 
-      mockQueueService.getQueue.mockReturnValue({ getJob: jest.fn().mockResolvedValue(mockDlqJob) });
+      mockQueueServiceInstance.getQueue.mockReturnValue({ getJob: jest.fn().mockResolvedValue(mockDlqJob) });
 
       const result = await rpcQueueService.deleteDlqJob('dlq-123');
 
@@ -418,7 +428,7 @@ describe('RpcQueueService', () => {
     });
 
     it('should return false when DLQ job not found', async () => {
-      mockQueueService.getQueue.mockReturnValue({ getJob: jest.fn().mockResolvedValue(null) });
+      mockQueueServiceInstance.getQueue.mockReturnValue({ getJob: jest.fn().mockResolvedValue(null) });
 
       const result = await rpcQueueService.deleteDlqJob('non-existent');
 
@@ -430,7 +440,7 @@ describe('RpcQueueService', () => {
     it('should clear DLQ successfully', async () => {
       await rpcQueueService.clearDlq();
 
-      expect(mockQueueService.clearQueue).toHaveBeenCalledWith('rpc-dead-letter');
+      expect(mockQueueServiceInstance.clearQueue).toHaveBeenCalledWith('rpc-dead-letter');
     });
   });
 
@@ -438,8 +448,8 @@ describe('RpcQueueService', () => {
     it('should pause RPC queues successfully', async () => {
       await rpcQueueService.pauseQueues();
 
-      expect(mockQueueService.pauseQueue).toHaveBeenCalledWith('rpc-fetch');
-      expect(mockQueueService.pauseQueue).toHaveBeenCalledWith('priority-rpc-fetch');
+      expect(mockQueueServiceInstance.pauseQueue).toHaveBeenCalledWith('rpc-fetch');
+      expect(mockQueueServiceInstance.pauseQueue).toHaveBeenCalledWith('priority-rpc-fetch');
     });
   });
 
@@ -447,20 +457,20 @@ describe('RpcQueueService', () => {
     it('should resume RPC queues successfully', async () => {
       await rpcQueueService.resumeQueues();
 
-      expect(mockQueueService.resumeQueue).toHaveBeenCalledWith('rpc-fetch');
-      expect(mockQueueService.resumeQueue).toHaveBeenCalledWith('priority-rpc-fetch');
+      expect(mockQueueServiceInstance.resumeQueue).toHaveBeenCalledWith('rpc-fetch');
+      expect(mockQueueServiceInstance.resumeQueue).toHaveBeenCalledWith('priority-rpc-fetch');
     });
   });
 
   describe('healthCheck', () => {
     it('should return healthy status', async () => {
       rpcQueueService.isStarted = true;
-      mockQueueService.healthCheck.mockResolvedValue({
+      mockQueueServiceInstance.healthCheck.mockResolvedValue({
         status: 'healthy',
         redis: { connected: true },
         queues: []
       });
-      mockQueueService.getQueueStats.mockResolvedValue({ waiting: 0, active: 0, completed: 0, failed: 0, delayed: 0, total: 0 });
+      mockQueueServiceInstance.getQueueStats.mockResolvedValue({ waiting: 0, active: 0, completed: 0, failed: 0, delayed: 0, total: 0 });
 
       const health = await rpcQueueService.healthCheck();
 
@@ -478,7 +488,7 @@ describe('RpcQueueService', () => {
 
     it('should return unhealthy status on error', async () => {
       rpcQueueService.isStarted = true;
-      mockQueueService.healthCheck.mockRejectedValue(new Error('Health check failed'));
+      mockQueueServiceInstance.healthCheck.mockRejectedValue(new Error('Health check failed'));
 
       const health = await rpcQueueService.healthCheck();
 

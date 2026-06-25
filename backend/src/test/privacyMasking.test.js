@@ -9,7 +9,7 @@ const {
   getPrivacyTier, 
   hasUnmaskedPermission, 
   applyPrivacyMasking 
-} = require('../src/utils/privacyMasking');
+} = require('../utils/privacyMasking');
 
 describe('Privacy Masking Tests', () => {
   

@@ -5,8 +5,23 @@ const sequelize = require('../database/connection');
 
 // Mock dependencies
 jest.mock('./sorobanRpcClient');
-jest.mock('../models');
-jest.mock('../database/connection');
+const makeMockModel = () => ({
+  findAll: jest.fn(), findByPk: jest.fn(), findOne: jest.fn(),
+  create: jest.fn(), update: jest.fn(), destroy: jest.fn(), max: jest.fn(),
+  findOrCreate: jest.fn(),
+});
+jest.mock('../models', () => ({
+  SorobanEvent: makeMockModel(),
+  IndexerState: makeMockModel(),
+}));
+jest.mock('../database/connection', () => {
+  const { Op } = jest.requireActual('sequelize');
+  return {
+    sequelize: { transaction: jest.fn(), Sequelize: { Op } },
+    initializeDatabase: jest.fn(),
+    getSequelize: jest.fn(),
+  };
+});
 
 describe('SorobanEventPollerService', () => {
   let service;
@@ -29,13 +44,7 @@ describe('SorobanEventPollerService', () => {
     SorobanRpcClient.mockImplementation(() => mockRpcClient);
 
     // Mock sequelize
-    mockSequelize = {
-      transaction: jest.fn(),
-      Sequelize: {
-        Op: {}
-      }
-    };
-    sequelize.mockReturnValue(mockSequelize);
+    mockSequelize = sequelize.sequelize;
 
     // Create service instance
     service = new SorobanEventPollerService({

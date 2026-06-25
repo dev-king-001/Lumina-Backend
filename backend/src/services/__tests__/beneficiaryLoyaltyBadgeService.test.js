@@ -3,7 +3,19 @@ const { LoyaltyBadge, Beneficiary, Vault } = require('../../models');
 const auditLogger = require('../auditLogger');
 
 // Mock dependencies
-jest.mock('../../models');
+const mockModel = () => ({
+  findByPk: jest.fn(),
+  findOne: jest.fn(),
+  findAll: jest.fn(),
+  create: jest.fn(),
+  update: jest.fn(),
+  destroy: jest.fn(),
+});
+jest.mock('../../models', () => ({
+  LoyaltyBadge: mockModel(),
+  Beneficiary: mockModel(),
+  Vault: {},
+}));
 jest.mock('../auditLogger');
 jest.mock('stellar-sdk', () => ({
   Server: jest.fn().mockImplementation(() => ({

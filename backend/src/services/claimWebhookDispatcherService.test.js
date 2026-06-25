@@ -1,4 +1,8 @@
 jest.mock('axios');
+jest.mock('./idempotencyKeyService', () => ({
+  generateIdempotencyKey: jest.fn().mockReturnValue('test-idempotency-key'),
+  executeWithIdempotency: jest.fn((key, url, payload, fn) => fn()),
+}));
 jest.mock('../models', () => ({
   OrganizationWebhook: {
     findAll: jest.fn(),
