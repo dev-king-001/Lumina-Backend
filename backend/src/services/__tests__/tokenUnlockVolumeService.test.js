@@ -537,7 +537,7 @@ describe('TokenUnlockVolumeService', () => {
       expect(riskRec).toBeDefined();
       expect(riskRec.priority).toBe('critical');
       expect(riskRec.title).toContain('Critical Unlock Pressure');
-      expect(riskRec.actionItems).toContain('Implement market maker support');
+      expect(riskRec.actionItems).toContain('Implement market maker support during these periods');
     });
 
     it('should always include general strategy recommendations', () => {
@@ -546,7 +546,7 @@ describe('TokenUnlockVolumeService', () => {
       const generalRec = recommendations.find(r => r.type === 'general_strategy');
       expect(generalRec).toBeDefined();
       expect(generalRec.priority).toBe('medium');
-      expect(generalRec.actionItems).toContain('Set up automated alerts');
+      expect(generalRec.actionItems).toContain('Set up automated alerts for unlock volume spikes');
     });
   });
 

@@ -20,7 +20,7 @@ const initializeDatabase = async () => {
       try {
         return await origSync(options);
       } catch (err) {
-        if (err.message && err.message.includes('index already exists')) {
+        if (err.message && err.message.includes('already exists') && err.message.includes('index')) {
           return;
         }
         throw err;
