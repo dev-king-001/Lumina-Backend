@@ -13,8 +13,9 @@ jest.mock('uuid', () => ({
 // Mock OpenTelemetry to prevent async SDK init leaks after tests
 // Keep actual API exports so downstream packages (gcp, aws) can use them
 jest.mock('@opentelemetry/sdk-node', () => {
-  try { const a = jest.requireActual('@opentelemetry/sdk-node'); return { ...a, NodeSDK: jest.fn() }; }
-  catch { return { NodeSDK: jest.fn() }; }
+  const mockSdk = { start: jest.fn(), shutdown: jest.fn().mockResolvedValue() };
+  try { const a = jest.requireActual('@opentelemetry/sdk-node'); return { ...a, NodeSDK: jest.fn(() => mockSdk) }; }
+  catch { return { NodeSDK: jest.fn(() => mockSdk) }; }
 });
 jest.mock('@opentelemetry/exporter-otlp-grpc', () => {
   try { const a = jest.requireActual('@opentelemetry/exporter-otlp-grpc'); return { ...a, OTLPTraceExporter: jest.fn() }; }
