@@ -563,24 +563,24 @@ describe('LedgerResyncService', () => {
   });
 
   describe('cancelResync', () => {
-    it('should cancel ongoing resync', () => {
+    it('should cancel ongoing resync', async () => {
       resyncService.isResyncing = true;
       resyncService.resyncProgress = {
         resyncId: 'test_resync',
         status: 'IN_PROGRESS'
       };
 
-      const cancelled = resyncService.cancelResync();
+      const cancelled = await resyncService.cancelResync();
 
       expect(cancelled).toBe(true);
       expect(resyncService.isResyncing).toBe(false);
       expect(resyncService.resyncProgress.status).toBe('CANCELLED');
     });
 
-    it('should return false when no resync in progress', () => {
+    it('should return false when no resync in progress', async () => {
       resyncService.isResyncing = false;
 
-      const cancelled = resyncService.cancelResync();
+      const cancelled = await resyncService.cancelResync();
 
       expect(cancelled).toBe(false);
     });
